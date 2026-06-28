@@ -2,6 +2,7 @@
 version: 1.3.3
 slug: cups
 name: CUPS Print Server
+image: "ghcr.io/kilork/cups-addon"
 description: CUPS print server for network printing
 url: https://github.com/kilork/cups-addon
 codenotary: alexander.korolev.germany@gmail.com
