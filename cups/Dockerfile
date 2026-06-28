@@ -1,16 +1,18 @@
-ARG BUILD_FROM
-FROM $BUILD_FROM
+FROM ghcr.io/home-assistant/base:latest
 
 # Add env
 ENV LANG=C.UTF-8
-# Set CUPS environment variables for data persistence
-ENV CUPS_DATADIR=/data/cups
-ENV CUPS_CACHEDIR=/data/cups/cache
-ENV CUPS_LOGDIR=/data/cups/logs
-ENV CUPS_STATEDIR=/data/cups/state
-ENV CUPS_SERVERROOT=/data/cups/config
+# Set CUPS environment variables for data persistence (HA shared directory)
+ENV CUPS_DATADIR=/share/cups
+ENV CUPS_CACHEDIR=/share/cups/cache
+ENV CUPS_LOGDIR=/share/cups/logs
+ENV CUPS_STATEDIR=/share/cups/state
+ENV CUPS_SERVERROOT=/share/cups/config
 
 # Setup base
+# Note: hplip, foomatic-db, and foomatic-db-ppds were removed from Alpine 3.23
+# and are no longer available in stable repositories.
+# Gutenprint covers most printer models as a replacement.
 RUN \
     echo "http://dl-cdn.alpinelinux.org/alpine/v$(cat /etc/alpine-release | cut -d'.' -f1,2)/main" > /etc/apk/repositories && \
     echo "http://dl-cdn.alpinelinux.org/alpine/v$(cat /etc/alpine-release | cut -d'.' -f1,2)/community" >> /etc/apk/repositories && \
@@ -21,7 +23,12 @@ RUN \
         ghostscript \
         libjpeg-turbo \
         net-snmp \
-        epson-inkjet-printer-escpr
+        epson-inkjet-printer-escpr \
+        gutenprint \
+        gcompat \
+        libstdc++ \
+        dpkg \
+        jq
 
 # Copy data
 COPY rootfs /
