@@ -1,8 +1,19 @@
 #!/usr/bin/with-contenv bash
 
+# ═════════════════════════════════════════════════════════════
+# CUPS Print Server — Boot sequence
+# ═════════════════════════════════════════════════════════════
+VERSION="1.3.3"
+echo "────────────────────────────────────────────────────────────"
+echo "  CUPS Print Server v${VERSION}"
+echo "  $(uname -o) / $(uname -m)"
+echo "  $(date -Iseconds)"
+echo "────────────────────────────────────────────────────────────"
+
 # ─────────────────────────────────────────────────────────────
 # Create CUPS data directories in the persistent HA share
 # ─────────────────────────────────────────────────────────────
+echo "[boot] Creating CUPS data directories..."
 mkdir -p /share/cups/cache
 mkdir -p /share/cups/logs
 mkdir -p /share/cups/state
@@ -11,12 +22,14 @@ mkdir -p /share/cups/config/ppd
 mkdir -p /share/cups/config/ssl
 
 # Set proper permissions
+echo "[boot] Setting permissions on /share/cups..."
 chown -R root:lp /share/cups
 chmod -R 775 /share/cups
 
 # ─────────────────────────────────────────────────────────────
 # Write a fresh cupsd.conf (this is static config we own)
 # ─────────────────────────────────────────────────────────────
+echo "[boot] Writing /share/cups/config/cupsd.conf..."
 cat > /share/cups/config/cupsd.conf << 'EOL'
 # Listen on all interfaces
 Listen 0.0.0.0:631
@@ -167,9 +180,89 @@ if [ -n "$DRIVER_DEB" ]; then
     fi
 fi
 
-# Verify printer drivers are available
-echo "Available printer drivers:"
-lpinfo -m 2>/dev/null | head -20 || echo "CUPS not yet running; drivers will be listed after start."
+# ═════════════════════════════════════════════════════════════
+# Package verification
+# ═════════════════════════════════════════════════════════════
+echo "[boot] Package verification:"
+for pkg in splix cups cups-filters ghostscript gutenprint epson-inkjet-printer-escpr; do
+    if apk list -I "$pkg" 2>/dev/null | grep -q "$pkg"; then
+        echo "  [ok]  $pkg — installed"
+    else
+        echo "  [??]  $pkg — not found"
+    fi
+done
 
-# Start CUPS service
-/usr/sbin/cupsd -f
+# Check for the critical splix filter binary
+if command -v rastertoqpdl &>/dev/null; then
+    echo "  [ok]  rastertoqpdl — available ($(which rastertoqpdl))"
+else
+    echo "  [!!]  rastertoqpdl — MISSING (Samsung M2020 printing will fail)"
+fi
+
+# ═════════════════════════════════════════════════════════════
+# PPD discovery
+# ═════════════════════════════════════════════════════════════
+PPD_COUNT=$(find /usr/share/cups/model -name "*.ppd" -o -name "*.ppd.gz" 2>/dev/null | wc -l)
+echo "[boot] PPD files found: ${PPD_COUNT}"
+SAMSUNG_PPDS=$(find /usr/share/cups/model -path "*/samsung/*.ppd" 2>/dev/null)
+if [ -n "$SAMSUNG_PPDS" ]; then
+    echo "[boot] Samsung PPDs:"
+    for ppd in $SAMSUNG_PPDS; do
+        nickname=$(grep "^\*NickName:" "$ppd" 2>/dev/null | sed 's/.*"\(.*\)"/  \1/')
+        if [ -n "$nickname" ]; then
+            echo "  $ppd →$nickname"
+        else
+            echo "  $ppd"
+        fi
+    done
+fi
+
+# ═════════════════════════════════════════════════════════════
+# Network information
+# ═════════════════════════════════════════════════════════════
+echo "[boot] Network:"
+echo "  Hostname: $(hostname 2>/dev/null || echo 'unknown')"
+IP_ADDR=$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | head -3)
+if [ -n "$IP_ADDR" ]; then
+    echo "$IP_ADDR" | while IFS= read -r addr; do
+        echo "  IP:       ${addr%/*}"
+    done
+else
+    echo "  IP:       (no global IP assigned yet)"
+fi
+
+# ═════════════════════════════════════════════════════════════
+# Start CUPS and wait for readiness
+# ═════════════════════════════════════════════════════════════
+echo "[boot] Starting CUPS daemon..."
+/usr/sbin/cupsd -f &
+CUPS_PID=$!
+
+# Poll until CUPS is ready (up to 15 seconds)
+CUPS_READY=false
+for i in $(seq 1 15); do
+    if lpstat -r 2>/dev/null; then
+        CUPS_READY=true
+        break
+    fi
+    sleep 1
+done
+
+if [ "$CUPS_READY" = true ]; then
+    echo "[boot] CUPS is running and accepting requests."
+    echo "[boot] Available drivers (Samsung):"
+    lpinfo -m 2>/dev/null | grep -i samsung | head -10 || echo "  (none listed yet)"
+    echo "[boot] Available drivers (total): $(lpinfo -m 2>/dev/null | wc -l) models"
+    echo ""
+    echo "╔══════════════════════════════════════════════════════╗"
+    echo "║  CUPS Print Server v${VERSION} is READY              ║"
+    echo "║  Web UI:  http://<your-ha-ip>:631                   ║"
+    echo "╚══════════════════════════════════════════════════════╝"
+    echo ""
+else
+    echo "[boot] WARNING: CUPS did not respond to lpstat within 15s."
+    echo "[boot] The daemon is still starting in the background."
+fi
+
+# Hand back to the foreground CUPS process
+wait $CUPS_PID
