@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.3.3] — 2026-06-28
+
+- Added splix driver support for Samsung printers.
+
 ## [1.3.2] — 2026-06-28
 
 - My local changes.

@@ -28,7 +28,8 @@ RUN \
         gcompat \
         libstdc++ \
         dpkg \
-        jq
+        jq \
+        splix
 
 # Copy data
 COPY rootfs /
