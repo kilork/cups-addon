@@ -72,6 +72,10 @@ Listen 0.0.0.0:631
 # Enable web interface
 WebInterface Yes
 
+# Logging — set to debug for troubleshooting print failures;
+# revert to info once printing works.
+LogLevel debug
+
 # Default settings
 DefaultAuthType None
 JobSheets none,none
@@ -195,6 +199,15 @@ done
 # Check for the critical splix filter binary
 if command -v rastertoqpdl &>/dev/null; then
     echo "  [ok]  rastertoqpdl — available ($(which rastertoqpdl))"
+    # Check that all shared libraries are resolved
+    LDD_OUTPUT=$(ldd $(which rastertoqpdl) 2>&1)
+    UNRESOLVED=$(echo "$LDD_OUTPUT" | grep -i "not found" || true)
+    if [ -n "$UNRESOLVED" ]; then
+        echo "  [!!]  rastertoqpdl — missing shared libraries:"
+        echo "$UNRESOLVED" | sed 's/^/        /'
+    else
+        echo "  [ok]  rastertoqpdl — all shared libraries resolved"
+    fi
 else
     echo "  [!!]  rastertoqpdl — MISSING (Samsung M2020 printing will fail)"
 fi
@@ -254,9 +267,15 @@ if [ "$CUPS_READY" = true ]; then
     lpinfo -m 2>/dev/null | grep -i samsung | head -10 || echo "  (none listed yet)"
     echo "[boot] Available drivers (total): $(lpinfo -m 2>/dev/null | wc -l) models"
     echo ""
+    echo "[boot] ── CUPS error log (last 20 lines) ──"
+    sleep 1
+    tail -20 /share/cups/logs/error_log 2>/dev/null || echo "  (error_log not yet written)"
+    echo "[boot] ─────────────────────────────────────"
+    echo ""
     echo "╔══════════════════════════════════════════════════════╗"
     echo "║  CUPS Print Server v${VERSION} is READY              ║"
     echo "║  Web UI:  http://<your-ha-ip>:631                   ║"
+    echo "║  Logs:    /share/cups/logs/error_log                ║"
     echo "╚══════════════════════════════════════════════════════╝"
     echo ""
 else
