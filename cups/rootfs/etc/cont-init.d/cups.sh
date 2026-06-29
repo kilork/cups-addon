@@ -3,7 +3,7 @@
 # ═════════════════════════════════════════════════════════════
 # CUPS Print Server — Boot sequence
 # ═════════════════════════════════════════════════════════════
-VERSION="1.6.1"
+VERSION="1.6.2"
 echo "CUPS Print Server v${VERSION} — $(uname -o) / $(uname -m)"
 
 # ─────────────────────────────────────────────────────────────
@@ -201,8 +201,9 @@ if [ "$CUPS_READY" = true ]; then
     echo "CUPS Print Server v${VERSION} is ready — http://<ha-ip>:631"
     # Start the Rust API server for printer status
     if [ -x /opt/cups-api/cups-api ]; then
-        echo "[boot] Starting cups-api on port 8080..."
-        CUPS_API_PORT=8080 /opt/cups-api/cups-api &
+        API_PORT=$(jq -r '.api_port // 8000' /data/options.json 2>/dev/null || echo 8000)
+        echo "[boot] Starting cups-api on port ${API_PORT}..."
+        CUPS_API_PORT="${API_PORT}" /opt/cups-api/cups-api &
     fi
 else
     echo "[boot] WARNING: CUPS did not respond within 15s, still starting."

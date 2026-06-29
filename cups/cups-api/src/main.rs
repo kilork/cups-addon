@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 use tokio::net::TcpListener;
 
 static PORT: LazyLock<u16> =
-    LazyLock::new(|| std::env::var("CUPS_API_PORT").ok().and_then(|v| v.parse().ok()).unwrap_or(8080));
+    LazyLock::new(|| std::env::var("CUPS_API_PORT").ok().and_then(|v| v.parse().ok()).unwrap_or(8000));
 
 #[derive(Serialize)]
 struct StatusResponse {
