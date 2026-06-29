@@ -10,6 +10,7 @@ arch:
   - aarch64
   - amd64
 hassio_api: true
+hassio_role: manager
 host_network: true
 map:
   - data:rw
