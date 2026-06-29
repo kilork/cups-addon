@@ -1,43 +1,55 @@
 #!/usr/bin/env python3
-"""Generate the ASCII architecture diagram for README.md.
-
-All lines are asserted to be exactly W characters wide.
-"""
+"""Generate ASCII architecture diagram. All lines 48 chars, verified."""
 
 W = 48
+COLS = 14          # inner width per box
+ROWS = 3           # content rows per box
+BW = COLS + 2      # box width with borders
+GAP = 2            # gap between boxes
+SPOUT = BW // 2   # index of ┬/┴ within box string
 
 
-def boxed(lines, w):
-    """Return box lines for content lines, inner width w.
-    Returns [top, *content, bottom] where bottom may be patched later.
-    """
-    result = ["┌" + "─" * w + "┐"]
-    for line in lines:
-        result.append("│" + line.ljust(w) + "│")
-    result.append("└" + "─" * w + "┘")
-    return result
+def make_box(content, top_spout=False, bot_spout=False):
+    d = COLS // 2
+    top = "┌" + ("─" * d) + ("┴" if top_spout else "─") + ("─" * (COLS - d - 1)) + "┐"
+    bot = "└" + ("─" * d) + ("┬" if bot_spout else "─") + ("─" * (COLS - d - 1)) + "┘"
+    lines = [top]
+    for c in content:
+        assert len(c) == COLS, f"content {c!r} is {len(c)} chars, need {COLS}"
+        lines.append("│" + c + "│")
+    lines.append(bot)
+    return lines
 
 
-def row(*parts):
-    """Join parts with 2-space gap and pad to W."""
-    inner = "  ".join(parts)
+def row(a, b=""):
+    inner = a + (" " * GAP) + b if b else a
     pad = W - 2 - len(inner)
+    assert pad >= 0
     return "│" + inner + " " * pad + "│"
 
 
-# ── Content ───────────────────────────────────────────────
-b1 = boxed([" CUPSd   ", "  :631    "], 10)
-b2 = boxed(["   cups-api   ", " (Rust/axum) ", "    :8000    "], 18)
-b3 = boxed([" lpstat,  ", " filters, ", " backends "], 11)
-b4 = boxed(["  Supervisor API", " / MQTT discov."], 18)
+def arrow_line(ch="│"):
+    left = " " * SPOUT + ch + " " * (BW - SPOUT - 1)
+    right = " " * SPOUT + ch + " " * (BW - SPOUT - 1)
+    return row(left, right)
 
-# Patch bottom borders to add spouts (┬) for arrows
-b1[-1] = "└────┬─────┘"
-b2[-1] = "└────────┬─────────┘"
 
-# Patch top borders to add receivers (┬) for arrows
-b3[0] = "┌────┴─────┐"    # was top border
-b4[0] = "┌─────────┴─────────┐"
+# ── Content (each string exactly COLS chars) ──────────────
+t1 = make_box(["    CUPSd     ",
+               "    :631      ",
+               "              "], bot_spout=True)
+
+t2 = make_box(["   cups-api   ",
+               "  (Rust/axum) ",
+               "    :8000     "], bot_spout=True)
+
+b1 = make_box(["    lpstat    ",
+               "    filters   ",
+               "   backends   "], top_spout=True)
+
+b2 = make_box(["   Supervisor ",
+               "  API / MQTT  ",
+               "   discovery  "], top_spout=True)
 
 # ── Assemble ──────────────────────────────────────────────
 lines = [
@@ -46,28 +58,18 @@ lines = [
     "│" + " " * (W - 2) + "│",
 ]
 
-# Top boxes (pad shorter one with blanks)
-n = max(len(b1), len(b2))
-for i in range(n):
-    p1 = b1[i] if i < len(b1) else " " * len(b1[0])
-    p2 = b2[i] if i < len(b2) else " " * len(b2[0])
-    lines.append(row(p1, p2))
+for i in range(ROWS + 2):
+    lines.append(row(t1[i], t2[i]))
 
-# Vertical arrows
-lines.append(row(" │  " + " " * 4, "  │  " + " " * 13))
-lines.append(row(" ▼  " + " " * 4, "  ▼  " + " " * 13))
-lines.append(row(" │  " + " " * 4, "  │  " + " " * 13))
+lines.append(arrow_line("│"))
+lines.append(arrow_line("▼"))
+lines.append(arrow_line("│"))
 
-# Bottom boxes
-n = max(len(b3), len(b4))
-for i in range(n):
-    p3 = b3[i] if i < len(b3) else " " * len(b3[0])
-    p4 = b4[i] if i < len(b4) else " " * len(b4[0])
-    lines.append(row(p3, p4))
+for i in range(ROWS + 2):
+    lines.append(row(b1[i], b2[i]))
 
 lines.append("└" + "─" * (W - 2) + "┘")
 
-# ── Verify ────────────────────────────────────────────────
 for i, line in enumerate(lines):
-    assert len(line) == W, f"line {i}: {len(line)} != {W}: {line!r}"
+    assert len(line) == W, f"line {i}: {len(line)} != {W}"
     print(line)
