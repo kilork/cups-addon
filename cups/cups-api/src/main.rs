@@ -47,7 +47,7 @@ async fn detect_mqtt() -> Option<MqttConfig> {
     let client = reqwest::Client::new();
     let resp = client
         .get("http://supervisor/services/mqtt")
-        .header("X-HA-Access", &token)
+        .header("Authorization", format!("Bearer {}", token))
         .send()
         .await;
 
