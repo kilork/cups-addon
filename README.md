@@ -7,7 +7,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE-MIT)
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue?style=for-the-badge)](LICENSE-UNLICENSE)
 
-A Home Assistant addon providing a CUPS print server with REST API, MQTT auto-discovery, and USB printer support. Forked from [arest/cups-addon](https://github.com/arest/cups-addon).
+A Home Assistant addon providing a CUPS print server with REST API, MQTT auto-discovery, and USB printer support.
+
+Built on top of [arest/cups-addon](https://github.com/arest/cups-addon) by Andrea Restello — the original CUPS addon for Home Assistant.
 
 ## Features
 
