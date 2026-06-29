@@ -61,6 +61,7 @@ RUN \
     apk del $BUILD_DEPS
 
 # Copy the Rust API binary from the builder stage
+# This provides printer status JSON on port 8080
 COPY --from=cups-api-builder /cups-api /opt/cups-api/cups-api
 
 # Copy data
