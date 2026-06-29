@@ -4,9 +4,9 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/kilork/cups-addon/builder.yaml?branch=main&style=for-the-badge)](https://github.com/kilork/cups-addon/actions)
 [![aarch64](https://img.shields.io/badge/aarch64-yes-green?style=for-the-badge)](https://github.com/kilork/cups-addon)
 [![amd64](https://img.shields.io/badge/amd64-yes-green?style=for-the-badge)](https://github.com/kilork/cups-addon)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-red?style=for-the-badge)](LICENSE-APACHE)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE-MIT)
-[![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue?style=for-the-badge)](LICENSE-UNLICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/Apache%202.0-000?style=for-the-badge)](LICENSE-APACHE)
+[![License: MIT](https://img.shields.io/badge/MIT-000?style=for-the-badge)](LICENSE-MIT)
+[![License: Unlicense](https://img.shields.io/badge/Unlicense-000?style=for-the-badge)](LICENSE-UNLICENSE)
 
 A Home Assistant addon providing a CUPS print server with REST API, MQTT auto-discovery, and USB printer support.
 
