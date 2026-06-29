@@ -37,8 +37,8 @@ RUN \
     git clone --depth 1 https://github.com/OpenPrinting/splix.git /tmp/splix && \
     cd /tmp/splix && \
     make DISABLE_JBIG=1 && \
-    cp rastertoqpdl /usr/lib/cups/filter/ && \
-    cp pstoqpdl /usr/lib/cups/filter/ 2>/dev/null; \
+    cp optimized/rastertoqpdl /usr/lib/cups/filter/ && \
+    cp optimized/pstoqpdl /usr/lib/cups/filter/ 2>/dev/null; \
     chmod 755 /usr/lib/cups/filter/rastertoqpdl && \
     cd / && \
     rm -rf /tmp/splix && \
