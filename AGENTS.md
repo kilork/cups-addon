@@ -16,7 +16,7 @@ cups-addon/
 │   │   ├── Cargo.toml
 │   │   └── src/main.rs
 │   └── rootfs/
-│       ├── etc/cont-init.d/cups.sh  # Boot script
+│       ├── etc/cont-init.d/cups.sh  # Boot script (3 lines — exec cups-api)
 │       └── usr/share/cups/
 │           ├── model/samsung/m2020.ppd          # SpliX-generated PPD
 │           └── usb/samsung-m2020.usb-quirks     # USB quirks override
@@ -40,7 +40,17 @@ cups-addon/
 - Built with axum, serde, tokio, rumqttc, reqwest.
 - Multi-stage Docker build: `rust:alpine` → final image.
 - Single static musl binary at `/opt/cups-api/cups-api` (~5MB).
-- Reads config from environment variables set by `cups.sh`.
+- **PID 1** — the binary is the container's main process.
+- **Spawns cupsd** as a `tokio::process::Child` with `kill_on_drop(true)`.
+- **tokio::select!** serves HTTP requests until cupsd exits, then shuts down.
+- **Setup** — `setup()` function at startup handles:
+  - Directory creation (`/share/cups/{cache,logs,state,config,ppd,ssl}`)
+  - `cupsd.conf` generation (embedded as a const string)
+  - Legacy `/data/cups → /share/cups` migration
+  - `/etc/cups` symlink to `/share/cups/config`
+  - User-supplied `.deb` driver extraction via `dpkg -x`
+- Reads config from env vars (`CUPS_API_PORT`, `MQTT_HOST`, etc.).
+- Reads addon options from `/data/options.json` for `api_port` and `printer_driver_deb`.
 
 ### MQTT Auto-Discovery
 - Requires `services: ["mqtt:want"]` in `config.yaml` to grant supervisor API access.
@@ -63,10 +73,18 @@ cups-addon/
 5. `gh release create v<version> ...`
 6. HA Supervisor picks up the new tag automatically
 
+### Architecture notes
+
+- cups-api is PID 1, spawns cupsd as child via `tokio::process::Command`
+- ctrl+c / SIGTERM → forwarded to cupsd via `kill_on_drop(true)`
+- If cupsd exits, cups-api shuts down (tokio::select! returns)
+- Boot script is minimal: `exec /opt/cups-api/cups-api` — cups-api handles all setup in `setup()`
+
 ## Version History (Recent)
 
 | Version | Changes |
 |---------|---------|
+| 1.8.0 | cups-api manages cupsd lifecycle, setup moved from bash to Rust |
 | 1.7.5 | Fix MQTT auth header (Bearer token) |
 | 1.7.4 | MQTT auto-discovery working (services: want) |
 | 1.7.0 | First MQTT auto-discovery (Rust + rumqttc) |
