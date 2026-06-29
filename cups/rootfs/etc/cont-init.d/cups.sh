@@ -3,12 +3,32 @@
 # ═════════════════════════════════════════════════════════════
 # CUPS Print Server — Boot sequence
 # ═════════════════════════════════════════════════════════════
-VERSION="1.4.1"
+VERSION="1.4.2"
 echo "────────────────────────────────────────────────────────────"
 echo "  CUPS Print Server v${VERSION}"
 echo "  $(uname -o) / $(uname -m)"
 echo "  $(date -Iseconds)"
 echo "────────────────────────────────────────────────────────────"
+
+# ═════════════════════════════════════════════════════════════
+# Remove conflicting usblp kernel module
+# ═════════════════════════════════════════════════════════════
+# The usblp module creates /dev/usb/lp* devices that conflict
+# with libusb (used by the CUPS USB backend). When usblp has
+# the USB interface claimed, libusb's device reset fails
+# (LIBUSB_ERROR_NOT_FOUND / -5), causing the print job to
+# complete in CUPS without the printer actually printing.
+if lsmod 2>/dev/null | grep -q usblp; then
+    echo "[boot] Detected conflicting usblp kernel module — removing..."
+    if modprobe -r usblp 2>/dev/null; then
+        echo "[boot]   usblp removed successfully."
+    else
+        echo "[boot]   WARNING: could not remove usblp (SYS_MODULE may be needed)"
+        echo "[boot]   USB printing may fail with 'Device reset failed, code: -5'"
+    fi
+else
+    echo "[boot] usblp kernel module not loaded — good."
+fi
 
 # ─────────────────────────────────────────────────────────────
 # Create CUPS data directories in the persistent HA share

@@ -1,5 +1,5 @@
 ---
-version: 1.4.1
+version: 1.4.2
 slug: cups
 name: CUPS Print Server
 image: "ghcr.io/kilork/cups-addon"
@@ -34,3 +34,4 @@ devices:
 apparmor: false
 privileged:
   - SYS_RAWIO
+  - SYS_MODULE
