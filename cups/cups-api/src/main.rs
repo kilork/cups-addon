@@ -36,8 +36,8 @@ async fn detect_mqtt() -> Option<MqttConfig> {
         });
     }
 
-    // 2. HA Supervisor API (only works inside an addon with hassio_api: true)
-    let token = std::env::var("HASSIO_TOKEN").unwrap_or_default();
+    // 2. HA Supervisor API (requires services: [mqtt:want] in config.yaml)
+    let token = std::env::var("SUPERVISOR_TOKEN").unwrap_or_default();
     if token.is_empty() {
         return None;
     }

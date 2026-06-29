@@ -10,7 +10,8 @@ arch:
   - aarch64
   - amd64
 hassio_api: true
-hassio_role: manager
+services:
+  - mqtt:want
 host_network: true
 map:
   - data:rw
