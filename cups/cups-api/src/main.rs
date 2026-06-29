@@ -158,6 +158,7 @@ fn parse_status() -> StatusResponse {
         let re_dev = Regex::new(r"Device URI:\s+(.*)").unwrap();
         let re_accept = Regex::new(r"Printer is\s+(.*)").unwrap();
         let re_reason = Regex::new(r"Reason\(s\):\s+(.*)").unwrap();
+        let re_desc = Regex::new(r"Description:\s+(.*)").unwrap();
 
         let mut make_and_model = String::new();
         let mut device_uri = String::new();
