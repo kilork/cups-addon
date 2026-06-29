@@ -1,5 +1,5 @@
 ---
-version: 1.6.2
+version: 1.7.0
 slug: cups
 name: CUPS Print Server
 image: "ghcr.io/kilork/cups-addon"
@@ -24,11 +24,19 @@ options:
   admin_password: "admin"
   printer_driver_deb: ""
   api_port: 8000
+  mqtt_host: ""
+  mqtt_port: 1883
+  mqtt_username: ""
+  mqtt_password: ""
 schema:
   admin_username: str
   admin_password: password
   printer_driver_deb: str
   api_port: port
+  mqtt_host: str
+  mqtt_port: port
+  mqtt_username: str
+  mqtt_password: password
 startup: services
 usb: true
 devices:

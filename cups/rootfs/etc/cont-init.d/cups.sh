@@ -3,7 +3,7 @@
 # ═════════════════════════════════════════════════════════════
 # CUPS Print Server — Boot sequence
 # ═════════════════════════════════════════════════════════════
-VERSION="1.6.2"
+VERSION="1.7.0"
 echo "CUPS Print Server v${VERSION} — $(uname -o) / $(uname -m)"
 
 # ─────────────────────────────────────────────────────────────
@@ -202,8 +202,17 @@ if [ "$CUPS_READY" = true ]; then
     # Start the Rust API server for printer status
     if [ -x /opt/cups-api/cups-api ]; then
         API_PORT=$(jq -r '.api_port // 8000' /data/options.json 2>/dev/null || echo 8000)
+        MQTT_HOST=$(jq -r '.mqtt_host // ""' /data/options.json 2>/dev/null || echo "")
+        MQTT_PORT=$(jq -r '.mqtt_port // 1883' /data/options.json 2>/dev/null || echo 1883)
+        MQTT_USERNAME=$(jq -r '.mqtt_username // ""' /data/options.json 2>/dev/null || echo "")
+        MQTT_PASSWORD=$(jq -r '.mqtt_password // ""' /data/options.json 2>/dev/null || echo "")
         echo "[boot] Starting cups-api on port ${API_PORT}..."
-        CUPS_API_PORT="${API_PORT}" /opt/cups-api/cups-api &
+        CUPS_API_PORT="${API_PORT}" \
+        MQTT_HOST="${MQTT_HOST}" \
+        MQTT_PORT="${MQTT_PORT}" \
+        MQTT_USERNAME="${MQTT_USERNAME}" \
+        MQTT_PASSWORD="${MQTT_PASSWORD}" \
+        /opt/cups-api/cups-api &
     fi
 else
     echo "[boot] WARNING: CUPS did not respond within 15s, still starting."
