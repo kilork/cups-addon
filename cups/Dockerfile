@@ -28,8 +28,21 @@ RUN \
         gcompat \
         libstdc++ \
         dpkg \
-        jq \
-        splix
+        jq && \
+    \
+    # Build Splix from git master (Alpine package 2.0.0 is too old —
+    # lacks Samsung M2020 support added in Oct 2025 commit 206e283)
+    BUILD_DEPS="g++ make cups-dev git" && \
+    apk add --no-cache $BUILD_DEPS && \
+    git clone --depth 1 https://github.com/OpenPrinting/splix.git /tmp/splix && \
+    cd /tmp/splix && \
+    make DISABLE_JBIG=1 && \
+    cp rastertoqpdl /usr/lib/cups/filter/ && \
+    cp pstoqpdl /usr/lib/cups/filter/ 2>/dev/null; \
+    chmod 755 /usr/lib/cups/filter/rastertoqpdl && \
+    cd / && \
+    rm -rf /tmp/splix && \
+    apk del $BUILD_DEPS
 
 # Copy data
 COPY rootfs /

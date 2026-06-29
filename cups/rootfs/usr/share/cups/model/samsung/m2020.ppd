@@ -27,6 +27,7 @@
 *cupsBackSide: "Normal"
 *QPDL ManualDuplex: "On"
 *QPDL PacketSize: "512"
+*QPDL SpecialBandWidth: "True"
 *cupsVersion: 1.7
 *cupsModelNumber: 0
 *cupsManualCopies: False
