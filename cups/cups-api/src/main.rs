@@ -200,7 +200,7 @@ async fn mqtt_publish(client: &AsyncClient) {
 
 async fn mqtt_loop() {
     let client_id = format!("cups-api-{}", std::process::id());
-    let mut mqttopts = MqttOptions::new(&client_id, &MQTT_HOST, *MQTT_PORT);
+    let mut mqttopts = MqttOptions::new(&client_id, MQTT_HOST.as_str(), *MQTT_PORT);
     mqttopts.set_keep_alive(Duration::from_secs(60));
     mqttopts.set_clean_session(true);
 
