@@ -1,5 +1,5 @@
 ---
-version: 1.4.2
+version: 1.4.3
 slug: cups
 name: CUPS Print Server
 image: "ghcr.io/kilork/cups-addon"
