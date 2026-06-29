@@ -1,5 +1,5 @@
 ---
-version: 1.5.1
+version: 1.5.2
 slug: cups
 name: CUPS Print Server
 image: "ghcr.io/kilork/cups-addon"
@@ -32,6 +32,3 @@ usb: true
 devices:
   - /dev/bus/usb
 apparmor: false
-privileged:
-  - SYS_RAWIO
-  - SYS_MODULE

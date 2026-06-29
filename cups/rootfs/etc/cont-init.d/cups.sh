@@ -3,32 +3,8 @@
 # ═════════════════════════════════════════════════════════════
 # CUPS Print Server — Boot sequence
 # ═════════════════════════════════════════════════════════════
-VERSION="1.5.1"
-echo "────────────────────────────────────────────────────────────"
-echo "  CUPS Print Server v${VERSION}"
-echo "  $(uname -o) / $(uname -m)"
-echo "  $(date -Iseconds)"
-echo "────────────────────────────────────────────────────────────"
-
-# ═════════════════════════════════════════════════════════════
-# Remove conflicting usblp kernel module
-# ═════════════════════════════════════════════════════════════
-# The usblp module creates /dev/usb/lp* devices that conflict
-# with libusb (used by the CUPS USB backend). When usblp has
-# the USB interface claimed, libusb's device reset fails
-# (LIBUSB_ERROR_NOT_FOUND / -5), causing the print job to
-# complete in CUPS without the printer actually printing.
-if lsmod 2>/dev/null | grep -q usblp; then
-    echo "[boot] Detected conflicting usblp kernel module — removing..."
-    if modprobe -r usblp 2>/dev/null; then
-        echo "[boot]   usblp removed successfully."
-    else
-        echo "[boot]   WARNING: could not remove usblp (SYS_MODULE may be needed)"
-        echo "[boot]   USB printing may fail with 'Device reset failed, code: -5'"
-    fi
-else
-    echo "[boot] usblp kernel module not loaded — good."
-fi
+VERSION="1.5.2"
+echo "CUPS Print Server v${VERSION} — $(uname -o) / $(uname -m)"
 
 # ─────────────────────────────────────────────────────────────
 # Create CUPS data directories in the persistent HA share
@@ -92,9 +68,7 @@ Listen 0.0.0.0:631
 # Enable web interface
 WebInterface Yes
 
-# Logging — set to debug for troubleshooting print failures;
-# revert to info once printing works.
-LogLevel debug
+LogLevel info
 
 # Default settings
 DefaultAuthType None
@@ -204,65 +178,7 @@ if [ -n "$DRIVER_DEB" ]; then
     fi
 fi
 
-# ═════════════════════════════════════════════════════════════
-# Package verification
-# ═════════════════════════════════════════════════════════════
-echo "[boot] Package verification:"
-for pkg in splix cups cups-filters ghostscript gutenprint epson-inkjet-printer-escpr; do
-    if apk list -I "$pkg" 2>/dev/null | grep -q "$pkg"; then
-        echo "  [ok]  $pkg — installed"
-    else
-        echo "  [??]  $pkg — not found"
-    fi
-done
 
-# Check for the critical splix filter binary
-if command -v rastertoqpdl &>/dev/null; then
-    echo "  [ok]  rastertoqpdl — available ($(which rastertoqpdl))"
-    # Check that all shared libraries are resolved
-    LDD_OUTPUT=$(ldd $(which rastertoqpdl) 2>&1)
-    UNRESOLVED=$(echo "$LDD_OUTPUT" | grep -i "not found" || true)
-    if [ -n "$UNRESOLVED" ]; then
-        echo "  [!!]  rastertoqpdl — missing shared libraries:"
-        echo "$UNRESOLVED" | sed 's/^/        /'
-    else
-        echo "  [ok]  rastertoqpdl — all shared libraries resolved"
-    fi
-else
-    echo "  [!!]  rastertoqpdl — MISSING (Samsung M2020 printing will fail)"
-fi
-
-# ═════════════════════════════════════════════════════════════
-# PPD discovery
-# ═════════════════════════════════════════════════════════════
-PPD_COUNT=$(find /usr/share/cups/model -name "*.ppd" -o -name "*.ppd.gz" 2>/dev/null | wc -l)
-echo "[boot] PPD files found: ${PPD_COUNT}"
-SAMSUNG_PPDS=$(find /usr/share/cups/model -path "*/samsung/*.ppd" 2>/dev/null)
-if [ -n "$SAMSUNG_PPDS" ]; then
-    echo "[boot] Samsung PPDs:"
-    for ppd in $SAMSUNG_PPDS; do
-        nickname=$(grep "^\*NickName:" "$ppd" 2>/dev/null | sed 's/.*"\(.*\)"/  \1/')
-        if [ -n "$nickname" ]; then
-            echo "  $ppd →$nickname"
-        else
-            echo "  $ppd"
-        fi
-    done
-fi
-
-# ═════════════════════════════════════════════════════════════
-# Network information
-# ═════════════════════════════════════════════════════════════
-echo "[boot] Network:"
-echo "  Hostname: $(hostname 2>/dev/null || echo 'unknown')"
-IP_ADDR=$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | head -3)
-if [ -n "$IP_ADDR" ]; then
-    echo "$IP_ADDR" | while IFS= read -r addr; do
-        echo "  IP:       ${addr%/*}"
-    done
-else
-    echo "  IP:       (no global IP assigned yet)"
-fi
 
 # ═════════════════════════════════════════════════════════════
 # Start CUPS and wait for readiness
@@ -282,25 +198,9 @@ for i in $(seq 1 15); do
 done
 
 if [ "$CUPS_READY" = true ]; then
-    echo "[boot] CUPS is running and accepting requests."
-    echo "[boot] Available drivers (Samsung):"
-    lpinfo -m 2>/dev/null | grep -i samsung | head -10 || echo "  (none listed yet)"
-    echo "[boot] Available drivers (total): $(lpinfo -m 2>/dev/null | wc -l) models"
-    echo ""
-    echo "[boot] ── CUPS error log (last 20 lines) ──"
-    sleep 1
-    tail -20 /share/cups/logs/error_log 2>/dev/null || echo "  (error_log not yet written)"
-    echo "[boot] ─────────────────────────────────────"
-    echo ""
-    echo "╔══════════════════════════════════════════════════════╗"
-    echo "║  CUPS Print Server v${VERSION} is READY              ║"
-    echo "║  Web UI:  http://<your-ha-ip>:631                   ║"
-    echo "║  Logs:    /share/cups/logs/error_log                ║"
-    echo "╚══════════════════════════════════════════════════════╝"
-    echo ""
+    echo "CUPS Print Server v${VERSION} is ready — http://<ha-ip>:631"
 else
-    echo "[boot] WARNING: CUPS did not respond to lpstat within 15s."
-    echo "[boot] The daemon is still starting in the background."
+    echo "[boot] WARNING: CUPS did not respond within 15s, still starting."
 fi
 
 # Hand back to the foreground CUPS process
