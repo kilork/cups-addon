@@ -205,7 +205,7 @@ async fn mqtt_loop() {
     mqttopts.set_clean_session(true);
 
     if !MQTT_USER.is_empty() {
-        mqttopts.set_credentials(&MQTT_USER, &MQTT_PASS);
+        mqttopts.set_credentials(MQTT_USER.as_str(), MQTT_PASS.as_str());
     }
 
     let (client, mut eventloop) = AsyncClient::new(mqttopts, 100);
