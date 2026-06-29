@@ -140,8 +140,9 @@ fn parse_status() -> StatusResponse {
     let (rout, _) = run(&["-r"]);
     let cups_running = rout.contains("is running");
 
-    let (vout, _) = run(&["-v"]);
-    let version = vout.lines().next().unwrap_or("unknown").to_string();
+    // CUPS version
+    let version = run_piped("cups-config", &["--version"]).0.trim().to_string();
+    let version = if version.is_empty() { "CUPS".to_string() } else { format!("CUPS {}", version) };
 
     let (pout, _) = run(&["-p"]);
     let re_printer = Regex::new(r"^printer\s+(\S+)\s+is\s+(\S+)").unwrap();
@@ -162,6 +163,7 @@ fn parse_status() -> StatusResponse {
         let mut device_uri = String::new();
         let mut accepting_jobs = true;
         let mut state_reasons: Vec<String> = Vec::new();
+        let mut description = String::new();
 
         for line in dout.lines() {
             if let Some(m) = re_make.captures(line) {
@@ -176,6 +178,13 @@ fn parse_status() -> StatusResponse {
             if let Some(m) = re_reason.captures(line) {
                 state_reasons = m[1].split(',').map(|s| s.trim().to_string()).collect();
             }
+            if let Some(m) = re_desc.captures(line) {
+                description = m[1].trim().to_string();
+            }
+        }
+        // lpstat -l -p doesn't show "Make and Model"; fall back to Description
+        if make_and_model.is_empty() {
+            make_and_model = description;
         }
 
         let (jout, _) = run(&["-o"]);
