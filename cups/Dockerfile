@@ -1,3 +1,19 @@
+# ══════════════════════════════════════════════════════════════
+# Stage 1 — Build Rust cups-api binary
+# ══════════════════════════════════════════════════════════════
+FROM rust:alpine AS cups-api-builder
+
+RUN apk add --no-cache musl-dev
+
+WORKDIR /app
+COPY cups-api/ .
+
+RUN cargo build --release && \
+    cp target/release/cups-api /cups-api
+
+# ══════════════════════════════════════════════════════════════
+# Stage 2 — Final CUPS image
+# ══════════════════════════════════════════════════════════════
 FROM ghcr.io/home-assistant/base:latest
 
 # Add env
@@ -44,11 +60,15 @@ RUN \
     rm -rf /tmp/splix && \
     apk del $BUILD_DEPS
 
+# Copy the Rust API binary from the builder stage
+COPY --from=cups-api-builder /cups-api /opt/cups-api/cups-api
+
 # Copy data
 COPY rootfs /
 
-# Expose CUPS web interface port
+# Expose CUPS web interface port and API port
 EXPOSE 631
+EXPOSE 8080
 
 HEALTHCHECK \
     CMD lpstat -r || exit 1
