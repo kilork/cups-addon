@@ -1,29 +1,92 @@
 use axum::{routing::get, Json, Router};
 use regex::Regex;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::process::Command;
 use std::sync::LazyLock;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::time;
 
-// ── Config (from env) ────────────────────────────────────────
+// ── Config (from env / supervisor API) ───────────────────────
 
 static PORT: LazyLock<u16> =
     LazyLock::new(|| std::env::var("CUPS_API_PORT").ok().and_then(|v| v.parse().ok()).unwrap_or(8000));
 
-static MQTT_HOST: LazyLock<String> =
-    LazyLock::new(|| std::env::var("MQTT_HOST").unwrap_or_default());
+struct MqttConfig {
+    host: String,
+    port: u16,
+    username: String,
+    password: String,
+}
 
-static MQTT_PORT: LazyLock<u16> =
-    LazyLock::new(|| std::env::var("MQTT_PORT").ok().and_then(|v| v.parse().ok()).unwrap_or(1883));
+/// Try to detect MQTT settings. Priority:
+/// 1. Manual env vars (MQTT_HOST etc.)
+/// 2. HA Supervisor API (http://supervisor/services/mqtt)
+fn detect_mqtt() -> Option<MqttConfig> {
+    // 1. Manual env var
+    let env_host = std::env::var("MQTT_HOST").unwrap_or_default();
+    if !env_host.is_empty() {
+        return Some(MqttConfig {
+            host: env_host,
+            port: std::env::var("MQTT_PORT").ok().and_then(|v| v.parse().ok()).unwrap_or(1883),
+            username: std::env::var("MQTT_USERNAME").unwrap_or_default(),
+            password: std::env::var("MQTT_PASSWORD").unwrap_or_default(),
+        });
+    }
 
-static MQTT_USER: LazyLock<String> =
-    LazyLock::new(|| std::env::var("MQTT_USERNAME").unwrap_or_default());
+    // 2. HA Supervisor API (only works inside an addon with hassio_api: true)
+    let token = std::env::var("HASSIO_TOKEN").unwrap_or_default();
+    if token.is_empty() {
+        return None;
+    }
 
-static MQTT_PASS: LazyLock<String> =
-    LazyLock::new(|| std::env::var("MQTT_PASSWORD").unwrap_or_default());
+    eprintln!("detecting MQTT via supervisor API...");
+
+    let rt = tokio::runtime::Handle::try_current();
+    if let Ok(handle) = rt {
+        let result = handle.block_on(async {
+            let client = reqwest::Client::new();
+            let resp = client
+                .get("http://supervisor/services/mqtt")
+                .header("X-HA-Access", &token)
+                .send()
+                .await;
+
+            match resp {
+                Ok(r) if r.status().is_success() => {
+                    #[derive(Deserialize)]
+                    struct MqttPayload {
+                        result: String,
+                        data: MqttData,
+                    }
+                    #[derive(Deserialize)]
+                    struct MqttData {
+                        host: String,
+                        port: u16,
+                        username: Option<String>,
+                        password: Option<String>,
+                    }
+                    match r.json::<MqttPayload>().await {
+                        Ok(payload) if payload.result == "ok" => Some(MqttConfig {
+                            host: payload.data.host,
+                            port: payload.data.port,
+                            username: payload.data.username.unwrap_or_default(),
+                            password: payload.data.password.unwrap_or_default(),
+                        }),
+                        _ => None,
+                    }
+                }
+                _ => None,
+            }
+        });
+        if result.is_some() {
+            return result;
+        }
+    }
+
+    None
+}
 
 // ── Data types ────────────────────────────────────────────────
 
@@ -198,14 +261,14 @@ async fn mqtt_publish(client: &AsyncClient) {
         .await;
 }
 
-async fn mqtt_loop() {
+async fn mqtt_loop(cfg: MqttConfig) {
     let client_id = format!("cups-api-{}", std::process::id());
-    let mut mqttopts = MqttOptions::new(&client_id, MQTT_HOST.as_str(), *MQTT_PORT);
+    let mut mqttopts = MqttOptions::new(&client_id, &cfg.host, cfg.port);
     mqttopts.set_keep_alive(Duration::from_secs(60));
     mqttopts.set_clean_session(true);
 
-    if !MQTT_USER.is_empty() {
-        mqttopts.set_credentials(MQTT_USER.as_str(), MQTT_PASS.as_str());
+    if !cfg.username.is_empty() {
+        mqttopts.set_credentials(&cfg.username, &cfg.password);
     }
 
     let (client, mut eventloop) = AsyncClient::new(mqttopts, 100);
@@ -273,19 +336,18 @@ async fn main() {
     eprintln!("cups-api listening on {addr}");
     let listener = TcpListener::bind(&addr).await.unwrap();
 
-    // Start MQTT in background if host is configured
-    if !MQTT_HOST.is_empty() {
-        eprintln!("mqtt auto-discovery enabled → {}:{}", *MQTT_HOST, *MQTT_PORT);
+    // Start MQTT in background if detected
+    if let Some(cfg) = detect_mqtt() {
+        eprintln!("mqtt auto-discovery enabled → {}:{}", cfg.host, cfg.port);
         tokio::spawn(async {
-            // Keep restarting on disconnect
             loop {
-                mqtt_loop().await;
+                mqtt_loop(cfg).await;
                 eprintln!("mqtt reconnecting in 10s...");
                 time::sleep(Duration::from_secs(10)).await;
             }
         });
     } else {
-        eprintln!("mqtt not configured — skipping auto-discovery");
+        eprintln!("mqtt not detected — skipping auto-discovery");
     }
 
     axum::serve(listener, app).await.unwrap();
