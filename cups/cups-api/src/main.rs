@@ -13,6 +13,7 @@ use tokio::time;
 static PORT: LazyLock<u16> =
     LazyLock::new(|| std::env::var("CUPS_API_PORT").ok().and_then(|v| v.parse().ok()).unwrap_or(8000));
 
+#[derive(Clone)]
 struct MqttConfig {
     host: String,
     port: u16,
@@ -23,7 +24,7 @@ struct MqttConfig {
 /// Try to detect MQTT settings. Priority:
 /// 1. Manual env vars (MQTT_HOST etc.)
 /// 2. HA Supervisor API (http://supervisor/services/mqtt)
-fn detect_mqtt() -> Option<MqttConfig> {
+async fn detect_mqtt() -> Option<MqttConfig> {
     // 1. Manual env var
     let env_host = std::env::var("MQTT_HOST").unwrap_or_default();
     if !env_host.is_empty() {
@@ -43,49 +44,39 @@ fn detect_mqtt() -> Option<MqttConfig> {
 
     eprintln!("detecting MQTT via supervisor API...");
 
-    let rt = tokio::runtime::Handle::try_current();
-    if let Ok(handle) = rt {
-        let result = handle.block_on(async {
-            let client = reqwest::Client::new();
-            let resp = client
-                .get("http://supervisor/services/mqtt")
-                .header("X-HA-Access", &token)
-                .send()
-                .await;
+    let client = reqwest::Client::new();
+    let resp = client
+        .get("http://supervisor/services/mqtt")
+        .header("X-HA-Access", &token)
+        .send()
+        .await;
 
-            match resp {
-                Ok(r) if r.status().is_success() => {
-                    #[derive(Deserialize)]
-                    struct MqttPayload {
-                        result: String,
-                        data: MqttData,
-                    }
-                    #[derive(Deserialize)]
-                    struct MqttData {
-                        host: String,
-                        port: u16,
-                        username: Option<String>,
-                        password: Option<String>,
-                    }
-                    match r.json::<MqttPayload>().await {
-                        Ok(payload) if payload.result == "ok" => Some(MqttConfig {
-                            host: payload.data.host,
-                            port: payload.data.port,
-                            username: payload.data.username.unwrap_or_default(),
-                            password: payload.data.password.unwrap_or_default(),
-                        }),
-                        _ => None,
-                    }
-                }
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            #[derive(Deserialize)]
+            struct MqttPayload {
+                result: String,
+                data: MqttData,
+            }
+            #[derive(Deserialize)]
+            struct MqttData {
+                host: String,
+                port: u16,
+                username: Option<String>,
+                password: Option<String>,
+            }
+            match r.json::<MqttPayload>().await {
+                Ok(payload) if payload.result == "ok" => Some(MqttConfig {
+                    host: payload.data.host,
+                    port: payload.data.port,
+                    username: payload.data.username.unwrap_or_default(),
+                    password: payload.data.password.unwrap_or_default(),
+                }),
                 _ => None,
             }
-        });
-        if result.is_some() {
-            return result;
         }
+        _ => None,
     }
-
-    None
 }
 
 // ── Data types ────────────────────────────────────────────────
@@ -337,11 +328,11 @@ async fn main() {
     let listener = TcpListener::bind(&addr).await.unwrap();
 
     // Start MQTT in background if detected
-    if let Some(cfg) = detect_mqtt() {
+    if let Some(cfg) = detect_mqtt().await {
         eprintln!("mqtt auto-discovery enabled → {}:{}", cfg.host, cfg.port);
-        tokio::spawn(async {
+        tokio::spawn(async move {
             loop {
-                mqtt_loop(cfg).await;
+                mqtt_loop(cfg.clone()).await;
                 eprintln!("mqtt reconnecting in 10s...");
                 time::sleep(Duration::from_secs(10)).await;
             }
