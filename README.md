@@ -1,149 +1,159 @@
-# Home Assistant CUPS Print Server App
+# CUPS Print Server — Home Assistant Addon
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/arest/cups-addon)
-[![Supports aarch64 Architecture](https://img.shields.io/badge/aarch64-yes-green.svg)](https://github.com/arest/cups-addon)
-[![Supports amd64 Architecture](https://img.shields.io/badge/amd64-yes-green.svg)](https://github.com/arest/cups-addon)
+[![GitHub Release](https://img.shields.io/github/v/release/kilork/cups-addon?style=for-the-badge)](https://github.com/kilork/cups-addon/releases)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/kilork/cups-addon/builder.yaml?branch=main&style=for-the-badge)](https://github.com/kilork/cups-addon/actions)
+[![aarch64](https://img.shields.io/badge/aarch64-yes-green?style=for-the-badge)](https://github.com/kilork/cups-addon)
+[![amd64](https://img.shields.io/badge/amd64-yes-green?style=for-the-badge)](https://github.com/kilork/cups-addon)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE-MIT)
+[![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue?style=for-the-badge)](LICENSE-UNLICENSE)
 
-This Home Assistant app provides a CUPS (Common Unix Printing System) print server, allowing you to manage and share printers over your local network. It's designed for Home Assistant users who want to integrate network printing capabilities directly into their smart home setup.
+A Home Assistant addon providing a CUPS print server with REST API, MQTT auto-discovery, and USB printer support. Forked from [arest/cups-addon](https://github.com/arest/cups-addon).
 
 ## Features
 
-- **Network Printing**: Share printers across your local network using CUPS
-- **Web Interface**: Access the CUPS administration panel at `http://<your-ha-ip>:631` to add and manage printers
-- **Secure Administration**: Optional authentication for the CUPS admin interface
-- **Printer Support**: Compatible with a wide range of network and USB printers
-- **Lightweight**: Built on Alpine Linux for minimal resource usage
-- **Data Persistence**: Printer settings and configurations persist across restarts and updates
+- **Network Printing** — Share printers across your network via IPP, LPD, AirPrint
+- **USB Printer Support** — Plug-and-play USB pass-through for local printers
+- **Samsung M2020 Support** — SpliX driver built from git master with `SpecialBandWidth` fix
+- **REST API** — Printer status as JSON on a configurable port (default `8000`)
+- **MQTT Auto-Discovery** — Automatically creates a `sensor.cups_printer` in Home Assistant
+- **Web Interface** — Full CUPS admin panel at `http://<ha-ip>:631`
+- **Persistent Storage** — Printers and config survive restarts and updates
 
-## Installation
+## Quick Start
 
-### From Home Assistant App Store
-
-1. Navigate to your Home Assistant instance.
-2. Go to **Settings** → **Apps** → **Install App**.
-3. Click the 3-dot menu in the top right corner and select **Repositories**.
-4. Add `https://github.com/arest/cups-addon` as a repository.
-5. Find the "CUPS Print Server" app in the store and click it.
-6. Click **Install**.
-
-### Manual Installation
-
-If you prefer to manually install:
-
-1. Clone this repository to your local machine:
-   ```bash
-   git clone https://github.com/arest/cups-addon.git
-   ```
-
-2. Copy the repository to your Home Assistant add-ons directory:
-   ```bash
-   scp -r cups-addon/cups root@<your-ha-ip>:/addons/
-   ```
-
-3. In Home Assistant, go to **Settings** → **Apps** → **Install App**.
-4. Click the 3-dot menu (top right) → **Repositories**.
-5. Add `/addons` as a repository URL and click **Add**.
-6. Refresh the app store to see "CUPS Print Server."
-7. Install the app.
+1. Add the repository: `https://github.com/kilork/cups-addon`
+2. Install **CUPS Print Server**
+3. Configure (optional): `admin_username`, `admin_password`
+4. Start the addon
+5. Open the CUPS web UI at `http://<ha-ip>:631` and add your printer
 
 ## Configuration
 
-The app provides the following configuration options:
+| Option | Default | Description |
+|--------|---------|-------------|
+| `admin_username` | `admin` | CUPS web UI admin username |
+| `admin_password` | `admin` | CUPS web UI admin password |
+| `api_port` | `8000` | Port for the REST API |
+| `printer_driver_deb` | `""` | Path to a `.deb` with extra printer drivers |
+| `mqtt_host` | `""` | MQTT broker (auto-detected via supervisor if empty) |
+| `mqtt_port` | `1883` | MQTT broker port |
+| `mqtt_username` | `""` | MQTT username (auto-detected if empty) |
+| `mqtt_password` | `""` | MQTT password (auto-detected if empty) |
 
-```yaml
-admin_username: printadmin
-admin_password: your_secure_password
+## REST API
+
+The addon exposes a Rust HTTP server (axum) on the configured `api_port`:
+
+```bash
+# Printer status
+curl http://<ha-ip>:8000/api/status | jq
+
+# Health check
+curl http://<ha-ip>:8000/health
 ```
 
-- **admin_username**: Username for the CUPS admin interface (default: printadmin)
-- **admin_password**: Password for the CUPS admin interface
+### Example response
 
-After configuring:
+```json
+{
+  "cups": { "is_running": true, "version": "CUPS 2.4.19" },
+  "printers": [
+    {
+      "name": "Samsung_M2020_Series",
+      "state": "idle",
+      "is_accepting_jobs": true,
+      "is_enabled": true,
+      "make_and_model": "Samsung M2020 Series",
+      "device_uri": "usb://Samsung/M2020%20Series...",
+      "state_reasons": [],
+      "jobs_in_queue": 0
+    }
+  ],
+  "jobs_completed_total": 42
+}
+```
 
-1. Start the app from the Info tab.
-2. Check the Log tab to ensure it starts successfully.
-3. Access the CUPS web interface at `http://<your-ha-ip>:631`.
+## MQTT Auto-Discovery
 
-## Usage
+If you have the **Mosquitto MQTT broker** addon installed, the addon automatically detects it and publishes Home Assistant discovery topics:
 
-### Access the Web Interface
+| Topic | Description |
+|-------|-------------|
+| `homeassistant/sensor/cups_printer/config` | Entity configuration (retained) |
+| `homeassistant/sensor/cups_printer/state` | Current printer state (every 30s) |
+| `homeassistant/sensor/cups_printer/attributes` | Full printer status JSON |
 
-Visit `http://<your-ha-ip>:631` in your browser.
+A `sensor.cups_printer` appears in HA automatically — no `configuration.yaml` edits needed.
 
-### Add a Printer
+Alternatively, configure a RESTful sensor manually:
 
-1. Go to the **Administration** tab.
-2. Click **Add Printer** and follow the prompts.
-3. Select the appropriate driver for your printer model.
+```yaml
+sensor:
+  - platform: rest
+    name: CUPS Printer
+    resource: http://<ha-ip>:8000/api/status
+    value_template: "{{ value_json.printers[0].state }}"
+    json_attributes_path: "$"
+    json_attributes:
+      - printers
+      - cups
+      - jobs_completed_total
+    scan_interval: 30
+```
 
-### Print from Devices
+## USB Printer Support
 
-Configure your computers or devices to use the printer at `<your-ha-ip>:631`.
+USB printers need pass-through. The addon already has:
 
-## Supported Printer Types
+```yaml
+usb: true
+devices:
+  - /dev/bus/usb
+apparmor: false
+```
 
-This app supports various printer types:
+For Samsung M2020 specifically, the addon includes:
+- **SpliX git master** — `rastertoqpdl` with M2020 bandwidth fix
+- **USB quirks override** — Prevents device reset errors
+- **Correct PPD** — Generated from Splix's `samsung.drv.in` with `SpecialBandWidth: True`
 
-- Network printers (via IPP, LPD, etc.)
-- USB printers connected to your Home Assistant host
-- Shared Windows printers (via Samba)
-- AirPrint for Apple devices
+## Architecture
 
-## Troubleshooting
+```
+┌─────────────────────────────────────────────────┐
+│  CUPS Print Server (Alpine)                     │
+│                                                  │
+│  ┌──────────┐   ┌──────────────┐                │
+│  │  CUPSd   │   │  cups-api    │                │
+│  │  :631    │   │  (Rust/axum) │                │
+│  │          │   │  :8000       │                │
+│  └────┬─────┘   └──────┬───────┘                │
+│       │                │                        │
+│       ▼                ▼                        │
+│  ┌──────────┐   ┌──────────────┐                │
+│  │ lpstat,  │   │  Supervisor  │                │
+│  │ filters, │   │  API / MQTT  │                │
+│  │ backends │   │  discovery   │                │
+│  └──────────┘   └──────────────┘                │
+└─────────────────────────────────────────────────┘
+```
 
-### Can't Access Web Interface
+## Development
 
-- Ensure the app is running (check logs).
-- Verify port 631 isn't blocked by your firewall.
-- Check that your network allows access to the Home Assistant device.
+```bash
+# Clone
+git clone https://github.com/kilork/cups-addon.git
+cd cups-addon
 
-### Printer Not Detected
+# Build locally (requires Docker buildx)
+docker buildx bake -f cups/bake.hcl
 
-- Ensure the printer is network-accessible or connected via USB to the host.
-- For USB printers, you may need to configure USB device pass-through to the app.
-- Check CUPS logs in the app's Log tab.
+# Or build a specific architecture
+docker buildx build --platform linux/aarch64 -t cups-addon:dev ./cups
+```
 
+## Acknowledgments
 
-### Printer Drivers
-   https://www.openprinting.org/download/PPD/
-   https://www.openprinting.org/drivers/
-
-### Authentication Issues
-
-- Verify you're using the correct username and password configured in the app settings.
-- If you've forgotten your password, you can reset it by reconfiguring the app.
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork this repository.
-2. Create a feature branch (`git checkout -b feature/your-feature`).
-3. Commit your changes (`git commit -m "Add your feature"`).
-4. Push to the branch (`git push origin feature/your-feature`).
-5. Open a pull request.
-
-## License
-
-This project is licensed under the MIT License.
-
-## Credits
-
-- Built by [Andrea Restello](https://github.com/arest)
-- Powered by [Home Assistant](https://www.home-assistant.io/) and [CUPS](https://www.cups.org/)
-
-## Data Persistence
-
-This app stores all CUPS data in the Home Assistant `/data` directory, ensuring:
-
-- Printer configurations persist across app restarts
-- Print jobs and settings are maintained through system reboots
-- App updates won't cause loss of printer configurations
-- All CUPS data is included in Home Assistant backups
-
-The following directories are maintained in the persistent storage:
-- `/data/cups/config`: CUPS configuration files
-- `/data/cups/cache`: CUPS cache data
-- `/data/cups/logs`: CUPS log files
-- `/data/cups/state`: CUPS state information
-
+- [SpliX](https://github.com/OpenPrinting/splix) — Open-source SPL printer driver
+- [CUPS](https://www.cups.org/) — The printing system
+- [arest/cups-addon](https://github.com/arest/cups-addon) — Original addon this was forked from
