@@ -12,6 +12,7 @@ out/
 .next/
 .nuxt/
 .output/
+cups/cups-api/target/
 
 # Environment variables
 .env
