@@ -2,6 +2,7 @@
 name = "cups-api"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.96"
 
 [dependencies]
 axum = "0.7"
