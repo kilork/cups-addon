@@ -84,6 +84,7 @@ cups-addon/
 
 | Version | Changes |
 |---------|---------|
+| 1.9.0 | AirPrint/mDNS support: Avahi, D-Bus, DNS-SD directives, `avahi_running` status |
 | 1.8.0 | cups-api manages cupsd lifecycle, setup moved from bash to Rust |
 | 1.7.5 | Fix MQTT auth header (Bearer token) |
 | 1.7.4 | MQTT auto-discovery working (services: want) |

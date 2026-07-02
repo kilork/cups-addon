@@ -43,6 +43,9 @@ RUN \
         gutenprint \
         gcompat \
         libstdc++ \
+        avahi \
+        avahi-tools \
+        dbus \
         dpkg \
         jq && \
     \

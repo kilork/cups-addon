@@ -87,6 +87,7 @@ struct StatusResponse {
     cups: CupsInfo,
     printers: Vec<PrinterInfo>,
     jobs_completed_total: u64,
+    avahi_running: bool,
 }
 
 #[derive(Serialize)]
@@ -157,9 +158,30 @@ fn setup() {
     run_piped("chown", &["-R", "root:lp", "/share/cups"]);
     run_piped("chmod", &["-R", "775", "/share/cups"]);
 
+    // Start D-Bus system bus (required by Avahi)
+    std::process::Command::new("mkdir")
+        .args(["-p", "/var/run/dbus"])
+        .status()
+        .ok();
+    std::process::Command::new("dbus-daemon")
+        .args(["--system"])
+        .spawn()
+        .ok();
+
+    // Start Avahi mDNS responder for Apple device discovery
+    std::process::Command::new("avahi-daemon")
+        .args(["-D"])
+        .spawn()
+        .ok();
+
     // cupsd.conf
     let conf = r#"# Listen on all interfaces
 Listen 0.0.0.0:631
+
+# mDNS/DNS-SD — allow Apple devices to auto-discover printers
+ServerName %H
+BrowseLocalProtocols dnssd
+BrowseDNSSDSubTypes _cups,_print
 
 <Location />
   Order allow,deny
@@ -352,10 +374,17 @@ fn parse_status() -> StatusResponse {
     let completed = run_piped("grep", &["-c", "Job completed", "/share/cups/logs/error_log"]);
     let jobs_completed_total: u64 = completed.0.trim().parse().unwrap_or(0);
 
+    let avahi_running = std::process::Command::new("pidof")
+        .args(["avahi-daemon"])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+
     StatusResponse {
         cups: CupsInfo { is_running: cups_running, version },
         printers,
         jobs_completed_total,
+        avahi_running,
     }
 }
 
