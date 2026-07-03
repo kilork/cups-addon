@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.9.1] — 2026-07-03
+
+- **Fix AirPrint print failures** — Add `cupsFilter2` entries to Samsung PPD so macOS/iOS
+  sends PDF instead of pre-rasterized CUPS raster. Includes proper filter chains for
+  PDF, PostScript, JPEG, PNG, and URF formats.
+
 ## [1.9.0] — 2026-07-02
 
 - **AirPrint/mDNS Discovery** — Apple devices (iPhone, iPad, Mac) can now
@@ -9,9 +15,6 @@
 - Add DNS-SD directives to `cupsd.conf` (`ServerName %H`, `BrowseLocalProtocols dnssd`,
   `BrowseDNSSDSubTypes _cups,_print`)
 - Add `avahi_running` status field to API health endpoint
-- **Fix AirPrint print failures** — Add `cupsFilter2` entries to Samsung PPD so iOS/macOS
-  sends PDF instead of pre-rasterized CUPS raster through the working
-  `gstoraster → rastertoqpdl` pipeline
 
 ## [1.8.0] — 2026-07-01
 
