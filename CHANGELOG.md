@@ -9,6 +9,9 @@
 - Add DNS-SD directives to `cupsd.conf` (`ServerName %H`, `BrowseLocalProtocols dnssd`,
   `BrowseDNSSDSubTypes _cups,_print`)
 - Add `avahi_running` status field to API health endpoint
+- **Fix AirPrint print failures** — Add `cupsFilter2` entries to Samsung PPD so iOS/macOS
+  sends PDF instead of pre-rasterized CUPS raster through the working
+  `gstoraster → rastertoqpdl` pipeline
 
 ## [1.8.0] — 2026-07-01
 
