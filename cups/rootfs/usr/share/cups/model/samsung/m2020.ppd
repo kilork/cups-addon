@@ -32,7 +32,13 @@
 *cupsVersion: 2.3
 *cupsModelNumber: 0
 *cupsManualCopies: False
-*cupsFilter: "application/vnd.cups-raster 0 rastertoqpdl"
+*cupsFilter: "application/vnd.cups-raster 100 rastertoqpdl"
+*cupsFilter2: "application/pdf application/vnd.cups-raster 0 gstoraster"
+*cupsFilter2: "application/vnd.cups-postscript application/vnd.cups-raster 0 gstoraster"
+*cupsFilter2: "image/jpeg application/vnd.cups-raster 50 imagetoraster"
+*cupsFilter2: "image/png application/vnd.cups-raster 50 imagetoraster"
+*cupsFilter2: "image/urf application/vnd.cups-raster 50 imagetoraster"
+*cupsFilter2: "application/vnd.cups-raster printer/Samsung_M2020_Series 100 rastertoqpdl"
 *cupsLanguages: "en"
 *OpenUI *PageSize/Media Size: PickOne
 *OrderDependency: 10 AnySetup *PageSize
